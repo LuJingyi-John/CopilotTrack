@@ -1,0 +1,4 @@
+.lh/
+checkpoints/
+*.pyc
+__pycache__/

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Point Tracking</title>
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+    <div class="header-container">
+        <div class="latency-display">
+            <div class="latency-inner">
+                <span class="latency-value">0</span>
+                <span class="latency-unit">ms</span>
+            </div>
+        </div>
+        <h1>Point Tracking</h1>
+    </div>
+    
+    <div class="container">
+        <video id="videoElement" autoplay playsinline></video>
+        <canvas id="canvasElement"></canvas>
+    </div>
+
+    <div class="controls">
+        <button id="toggleCamera" class="toggle-button">
+            <span id="buttonText">Start Camera</span>
+        </button>
+    </div>
+
+    <div id="pointsList">
+        <div class="points-header">
+            <h3>Selected Points</h3>
+            <button class="clear-all-points" onclick="clearAllPoints()">×</button>
+        </div>
+        <ul id="pointsListItems"></ul>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

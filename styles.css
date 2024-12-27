@@ -1,0 +1,359 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Main body layout */
+body {
+    margin: 0;
+    padding: 20px;
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #000000;
+    color: #ffffff;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+.header-container {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin: 40px 0;
+}
+
+/* Main title styling */
+h1 {
+    font-weight: 500;
+    font-size: 32px;
+    text-align: center;
+    background: linear-gradient(to right, #fff 20%, #ffffffcc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+}
+
+/* Main container for video/canvas */
+.container {
+    position: relative;
+    margin: 20px;
+    width: 100%;
+    max-width: 1120px;
+    aspect-ratio: 16/9;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Hidden video element */
+#videoElement {
+    display: none;
+}
+
+/* Canvas styling */
+#canvasElement {
+    width: 100%;
+    height: 100%;
+    border-radius: 24px;
+    background-color: #1c1c1e;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    cursor: crosshair;
+    transition: transform 0.3s ease;
+    object-fit: contain;
+}
+
+/* Control buttons container */
+.controls {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* Button styling */
+.toggle-button {
+    padding: 0;
+    width: 160px;
+    height: 48px;
+    font-size: 16px;
+    cursor: pointer;
+    background-color: #0A84FF;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+/* Button hover state */
+.toggle-button:hover {
+    background-color: #0071e3;
+    box-shadow: 0 0 20px rgba(10, 132, 255, 0.3);
+}
+
+/* Active button state */
+.toggle-button.active {
+    background-color: #ff453a;
+}
+
+.toggle-button.active:hover {
+    background-color: #d93d33;
+    box-shadow: 0 0 20px rgba(255, 69, 58, 0.3);
+}
+
+/* Header: Fixed height of 30px with flex layout */
+.points-header {
+    height: 30px;
+    margin: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Header text: Maintain the subtle gray color and font style */
+.points-header h3 {
+    margin: 0;
+    font-weight: 400; 
+    font-size: 14px;  
+    color: #86868b;   
+}
+
+/* Clear all button: Circle button with hover effect */
+.clear-all-points {
+    background-color: rgba(44, 44, 46, 0.5);
+    border: none;
+    color: #ff453a;
+    width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.clear-all-points:hover {
+    background-color: rgba(58, 58, 60, 0.8);
+    transform: scale(1.1);
+}
+
+/* Main container: Fixed position with blur effect */
+#pointsList {
+    position: fixed;
+    top: 40px;
+    right: 40px;
+    width: 240px;
+    min-height: 80px;
+    max-height: calc(100vh - 160px);
+    padding: 14px;
+    border-radius: 16px;
+    background-color: rgba(28, 28, 30, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+}
+
+/* List container: Scrollable with hidden scrollbar */
+#pointsListItems {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    padding-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    flex-grow: 1;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+#pointsListItems::-webkit-scrollbar {
+    display: none;
+}
+
+/* Point item: Fixed height with blur background */
+.point-tag {
+    height: 40px;
+    padding: 0 12px;
+    box-sizing: border-box;
+    border-radius: 10px;
+    background-color: rgba(44, 44, 46, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Fade in animation for new points */
+@keyframes fadeIn {
+    from { 
+        opacity: 0; 
+        transform: translateY(8px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+/* Point number: Blue accent color */
+.point-number {
+    color: #0A84FF;
+    font-weight: 500;
+}
+
+/* Delete button: Small circle with hover effect */
+.delete-point {
+    background-color: rgba(44, 44, 46, 0.5);
+    border: none;
+    color: #ff453a;
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    font-size: 12px;
+    margin-left: auto;
+    transition: all 0.2s ease;
+}
+
+.delete-point:hover {
+    background-color: rgba(58, 58, 60, 0.8);
+    transform: scale(1.1);
+}
+
+/* Tracking status: Different colors for active/inactive */
+.tracking-status {
+    font-size: 11px;
+    color: #86868b;
+}
+
+.tracking-active {
+    color: #30d158;
+}
+
+/* Responsive design for tablets and mobile devices */
+@media (max-width: 768px) {
+    .header-container {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .latency-display {
+        position: static;
+        transform: none;
+    }
+    .container {
+        margin: 10px;
+    }
+
+    #pointsList {
+        position: static;
+        width: calc(100% - 28px);
+        max-width: 280px;
+        margin: 20px auto;
+        max-height: 300px;
+    }
+
+    .controls {
+        position: static;
+        margin: 20px auto;
+        transform: none;
+        width: calc(100% - 40px);
+    }
+}
+
+.latency-display {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    padding: 10px 15px;
+    border-radius: 12px;
+    color: white;
+    font-family: 'SF Pro Display', sans-serif;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.latency-inner {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.latency-value {
+    font-size: 24px;
+    font-weight: 500;
+    color: #30d158;
+    transition: color 0.5s ease;
+}
+
+.latency-value.warning {
+    color: #ff9f0a;
+}
+
+.latency-value.danger {
+    color: #ff453a;
+}
+
+.latency-unit {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+/* Additional mobile optimizations */
+@media (max-width: 480px) {
+    body {
+        padding: 15px;
+    }
+
+    h1 {
+        font-size: 28px;
+        margin: 30px 0;
+    }
+
+    .toggle-button {
+        width: 140px;
+        height: 44px;
+        font-size: 15px;
+    }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+    body {
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+}
