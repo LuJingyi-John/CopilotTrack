@@ -166,7 +166,7 @@ class CoTrackerThreeRealTime(CoTrackerThreeOnline):
                 for i in range(self.corr_levels):
                     _, track_feat_support = self.get_track_feat(
                         self.fmaps_pyramid[i],
-                        torch.zeros(B, N, device=device).fill_(window_len-1),
+                        torch.full((B, N), window_len-1, device=device),
                         queries / (2**i),
                         support_radius=self.corr_radius
                     )

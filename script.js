@@ -181,8 +181,12 @@ function startVideoCanvas() {
         
         try {
             // Compress video frame
+            compressedCtx.save();
+            compressedCtx.scale(-1, 1);
+            compressedCtx.translate(-COMPRESS_SIZE, 0);
             compressedCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight,
                 0, 0, COMPRESS_SIZE, COMPRESS_SIZE);
+            compressedCtx.restore();
             
             // Prepare data for server
             const requestId = Date.now();
@@ -216,9 +220,12 @@ function startVideoCanvas() {
         // Calculate video dimensions
         const { offsetX, offsetY, drawWidth, drawHeight } = calculateVideoDimensions();
         
-        // Draw video frame
-        offscreenCtx.clearRect(0, 0, canvas.width, canvas.height);
+        // Draw flipped video frame
+        offscreenCtx.save(); 
+        offscreenCtx.scale(-1, 1); 
+        offscreenCtx.translate(-canvas.width, 0);
         offscreenCtx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+        offscreenCtx.restore(); 
         
         // Draw points
         displayedPoints.forEach((point, i) => drawPoint(offscreenCtx, point, i));
@@ -474,9 +481,15 @@ toggleButton.addEventListener('click', async () => {
     if (!isStreaming) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: {width: {ideal: 1920}, height: {ideal: 1080}}
+                video: {
+                    width: {ideal: 1920}, 
+                    height: {ideal: 1080},
+                    facingMode: "user", 
+                    transform: [{ direction: 'horizontal' }] 
+                }
             });
             video.srcObject = stream;
+            video.style.transform = 'scaleX(-1)';
             isStreaming = true;
             toggleButton.classList.add('active');
             buttonText.textContent = 'Stop Camera';
