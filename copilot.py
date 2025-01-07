@@ -1,3 +1,4 @@
+import os 
 import torch
 import torch.nn.functional as F
 from cotracker.models.core.cotracker.cotracker3_online import CoTrackerThreeOnline
@@ -33,8 +34,8 @@ class CoTrackerThreeRealTime(CoTrackerThreeOnline):
         to prepare for tracking a new sequence of frames.
         """
         self.is_first_frame = True
-        self.fmaps_pyramid = None 
-        self.track_feat_support_pyramid = None 
+        self.fmaps_pyramid = [] 
+        self.track_feat_support_pyramid = [] 
         self.coords = None
         self.vis = None
         self.conf = None
@@ -43,8 +44,8 @@ class CoTrackerThreeRealTime(CoTrackerThreeOnline):
         """Process new frame and update tracking states.
         
         Args:
-            frame (torch.Tensor): Input frame tensor of shape (B,3,H,W), values in range [0,255]
-            queries (torch.Tensor, optional): New points to track of shape (B,N,2) in resolution scale
+            frame (torch.Tensor): New frame tensor of shape (B,3,H,W), values in range [0,255]
+            queries (torch.Tensor, optional): New points to track with the frame, shape (B,N,2) in resolution scale
             iters (int): Number of refinement iterations for point locations. Defaults to 4
             add_space_attn (bool): Whether to use spatial attention. Defaults to True
             
@@ -63,8 +64,7 @@ class CoTrackerThreeRealTime(CoTrackerThreeOnline):
         window_len = self.window_len
 
         # Validate input dimensions and tracking state
-        if not all([H % self.stride == 0, W % self.stride == 0, 
-                   window_len >= 2]):
+        if not all([H % self.stride == 0, W % self.stride == 0, window_len >= 2]):
             raise ValueError("Invalid input parameters")
 
         # Do nothing when no points tracked
@@ -73,16 +73,13 @@ class CoTrackerThreeRealTime(CoTrackerThreeOnline):
 
         # Normalize frame and extract features, shape (B, latent_dim, H/stride, W/stride)
         frame = 2 * (frame / 255.0) - 1.0  # Scale to [-1,1]
-        new_frame_fmap = F.normalize(self.fnet(frame), p=2, dim=1).to(frame.dtype)
+        fmap = F.normalize(self.fnet(frame), p=2, dim=1).to(frame.dtype)
 
         if self.is_first_frame:
             # First frame: Build multi-scale feature pyramid with sequential 2x downsampling
-            self.fmaps_pyramid = []
-            curr_fmap = new_frame_fmap
-            for i in range(self.corr_levels):
-                pyramid_level = curr_fmap if i == 0 else F.avg_pool2d(curr_fmap, 2, stride=2)
-                curr_fmap = pyramid_level
-                self.fmaps_pyramid.append(pyramid_level.unsqueeze(1).expand(B, window_len, -1, -1, -1))
+            for _ in range(self.corr_levels):
+                self.fmaps_pyramid.append(fmap.unsqueeze(1).expand(-1, window_len, -1, -1, -1))
+                fmap = F.avg_pool2d(fmap, 2, stride=2)
                 
             # Initialize tracking for first frame points
             if queries is not None:
@@ -99,7 +96,7 @@ class CoTrackerThreeRealTime(CoTrackerThreeOnline):
                 for i in range(self.corr_levels):
                     _, track_feat_support = self.get_track_feat(
                         self.fmaps_pyramid[i],
-                        torch.zeros(B, N, device=device).fill_(window_len-1),
+                        torch.full((B, N), window_len-1, device=device),
                         queries / (2**i),  # Scale queries for pyramid level
                         support_radius=self.corr_radius
                     )
@@ -112,19 +109,18 @@ class CoTrackerThreeRealTime(CoTrackerThreeOnline):
             # Subsequent frames: Roll feature pyramid and update latest frame
             for i in range(len(self.fmaps_pyramid)):
                 self.fmaps_pyramid[i] = torch.roll(self.fmaps_pyramid[i], shifts=-1, dims=1)
-                self.fmaps_pyramid[i][:, -1] = (
-                    F.avg_pool2d(new_frame_fmap, 2**i, stride=2**i) if i > 0 else new_frame_fmap
-                )
+                self.fmaps_pyramid[i][:, -1] = fmap
+                fmap = F.avg_pool2d(fmap, 2, stride=2)
 
             # Update tracking window by rolling previous states
             self.coords = torch.roll(self.coords, shifts=-1, dims=1)
-            self.coords[:, -1] = self.coords[:, -2].clone()  # Initialize with previous positions
+            self.coords[:, -1] = self.coords[:, -2].clone()
             
             self.vis = torch.roll(self.vis, shifts=-1, dims=1)
-            self.vis[:, -1] = self.vis[:, -2].clone()  # Maintain visibility
+            self.vis[:, -1] = self.vis[:, -2].clone()
             
             self.conf = torch.roll(self.conf, shifts=-1, dims=1)
-            self.conf[:, -1] = 0  # Reset confidence for new frame
+            self.conf[:, -1] = 0 
 
             # Refine point locations using correlation and attention
             coords, viss, confs = self.forward_window(
@@ -232,9 +228,13 @@ class CoTrackerRealTimePredictor(torch.nn.Module):
             corr_radius=3,
             window_len=window_len
         )
+        self.model.eval()
         
         # Load model weights if provided
+        # For pretrained Cotracker3 checkpoint, window length is 16
         if checkpoint:
+            if not os.path.exists(checkpoint):
+                raise FileNotFoundError(f"Checkpoint file not found at: {checkpoint}")
             state_dict = torch.load(checkpoint, map_location="cpu", weights_only=True)
             state_dict = state_dict.get("model", state_dict)
             self.model.load_state_dict(state_dict)
@@ -311,3 +311,74 @@ class CoTrackerRealTimePredictor(torch.nn.Module):
         visibles = (vis * conf) > self.visibility_threshold
         
         return tracks, visibles
+
+    @torch.no_grad()
+    def process_video(self, video, queries):
+        """Process video sequence and track points from their starting frames.
+        
+        Args:
+            video (torch.Tensor): Video sequence of shape (1,T,C,H,W)
+            queries (torch.Tensor): Query points of shape (1,N,3) where each point contains:
+                - time index t (when to start tracking)
+                - x coordinate (in original resolution)
+                - y coordinate (in original resolution)
+        
+        Returns:
+            tuple(torch.Tensor, torch.Tensor):
+                - trajectories: Tracked trajectories of shape (1,T,N,2) 
+                - visibilities: Boolean visibility flags of shape (1,T,N)
+        """
+        assert video.shape[0] == 1 and queries.shape[0] == 1, "Batch size must be 1"
+        T = video.shape[1]
+        N = queries.shape[1]
+        device = video.device
+        
+        def track_pass(time_range, backward=False):
+            """Helper function for tracking points in one direction.
+            
+            Args:
+                time_range: Range of time indices to process
+                backward: If True, track points backward in time
+                
+            Returns:
+                tuple(torch.Tensor, torch.Tensor): trajectories and visibilities
+            """
+            self.reset()
+            trajectories = torch.zeros((1, T, N, 2), device=device)
+            visibilities = torch.zeros((1, T, N), dtype=torch.bool, device=device)
+            
+            for t in time_range:
+                # Find points that start at current frame
+                curr_points_mask = (queries[0,:,0] == t)
+                if curr_points_mask.any():
+                    # Add new points to tracker
+                    curr_points = queries[0, curr_points_mask, 1:].unsqueeze(0)
+                    pred_tracks, pred_vis = self.forward(video[:,t], curr_points)
+                    
+                    # Update all tracked points' positions for current frame
+                    if backward:
+                        # For backward pass, track points that start at or after current time
+                        active_indices = torch.where(queries[0,:,0] >= t)[0]
+                    else:
+                        # For forward pass, track points that start at or before current time
+                        active_indices = torch.where(queries[0,:,0] <= t)[0]
+                    
+                    trajectories[0, t, active_indices] = pred_tracks[0]
+                    visibilities[0, t, active_indices] = pred_vis[0, :, 0]
+                    
+            return trajectories, visibilities
+        
+        # Forward pass
+        trajectories, visibilities = track_pass(range(T), backward=False)
+        
+        # Backward pass
+        trajectories_bwd, visibilities_bwd = track_pass(range(T-1, -1, -1), backward=True)
+        
+        # Combine trajectories - use backward tracks before start frame
+        for n in range(N):
+            t = queries[0,n,0].long()
+            if t > 0:
+                trajectories[0, :t, n] = trajectories_bwd[0, :t, n]
+                visibilities[0, :t, n] = visibilities_bwd[0, :t, n]
+        
+        return trajectories, visibilities
